@@ -1,0 +1,211 @@
+'CR1000 Series Datalogger
+'Author: Juan Luis Herrera Cortijo/Jose Gonzalez
+'Fecha: 13/09/2011
+
+' Young 05106 Wind Speed & Direction Sensor
+' Samples wind speed and direction every second and computes average, standard deviation and gust in ten minutes interval
+
+'--------------------------------------------------------------------------------------------
+
+'COMPILATION OPTIONS
+
+'Program compiled in sequential mode
+SequentialMode
+
+'Angles in degrees
+AngleDegrees
+
+'--------------------------------------------------------------------------------------------
+
+'VARIABLES AND CONSTANTS
+
+'Constants
+'----------
+
+'Scan length
+
+const scanLength = 1
+const scanLengthUnits = Sec
+
+'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
+
+const dataStorageInterval = 10
+const dataStorageIntervalUnits = Min
+
+'Communications with sensor
+
+'Wind sensor may be used with or without a compass
+
+const isUsedWithCompass = true
+
+'When not used with a compass measurements are made via pulse counts for speed and HalfBridge for direction
+
+const windSpeedPulseCountPort = 
+const windDirectionHalfBridgePort = 
+
+'When used with a compass measurements may be transmitted via RS232 comm port or we must measure voltage
+
+'Communications via Comm port configuration
+
+const windSpeedMeasurementsViaCommPort = true
+const windSpeedMeasurementsCommPort = Com1
+const windSpeedMeasurementsCommPortBaudRate = 9600
+
+'Voltage measurement
+
+const windSpeedSingleEndedPort = 1
+const windDirectionSingleEndedPort = 2
+
+'Variables
+'----------
+
+'Wind Speed
+
+Public windSpeedModulus
+Units windSpeedModulus=meters/second
+
+'Wind direction (nautic reference)
+
+Public windSpeedDirection
+Units windSpeedDirection = Degrees clockwise from North.
+
+'Intermediate variables for gust computing
+
+Private u,v,umed3,vmed3,modmed3,dirmed3
+
+Units u=meters/second
+Units v=meters/second
+Units umed3=meters/second
+Units vmed3=meters/second
+Units modmed3=meters/second
+Units dirmed3=Degrees clockwise from North
+
+'Maximum Gust
+
+'Modulus
+
+Public maxGustModulus
+Units maxGustModulus=meters/second
+
+'Direction 
+
+Public maxGustDirection
+Units maxGustDirection=Degrees clockwise from North
+
+'--------------------------------------------------------------------------------------------
+
+'DEFINE DATA TABLES
+
+DataTable (Data,1,-1)
+	DataInterval (0,dataStorageInterval,dataStorageIntervalUnits,0)
+
+	WindVector (1,windSpeedModulus,windSpeedDirection,IEEE4,False,0,0,0)
+	FieldNames("windSpeedModulusAvg,windSpeedDirectionAvg,windSpeedDirectionStdDeviation")
+	
+	StdDev(1,WS_ms,IEEE4,False)
+	FieldNames("windSpeedStdDeviation")
+	
+	Sample(1,maxGustModulus,IEEE4)
+	FieldNames("gustModulus")
+	
+	Sample(1,maxGustDirection,IEEE4)
+	FieldNames("gustDirection")
+EndTable
+
+'--------------------------------------------------------------------------------------------
+'MAIN PROGRAM
+
+BeginProg
+
+'''''''''''''''''''''''''''Wind Speed and Direction''''''''''''''''''''''''
+if (isUsedWithCompass and windSpeedMeasurementsViaCommPort) then
+
+	SerialOpen (windSpeedMeasurementsCommPort,windSpeedMeasurementsCommPortBaudRate,0,0,2000)
+
+endif
+
+'''''''''''''''''''''''''''''''''''''''''''''''
+
+	Scan(scanLength,scanLengthUnits,0,0)
+	
+if(isUsedWithCompass) then
+
+	if (windSpeedMeasurementsViaCommPort) then
+	
+			If SerialInChk (windSpeedMeasurementsCommPort) > 0 Then
+				'Read data until finding a  <CR>
+				SerialIn (Cadena_viento,windSpeedMeasurementsCommPort,100,13,134)
+				SerialIn (Cadena_viento,windSpeedMeasurementsCommPort,100,13,134)
+			EndIf
+			SerialFlush(windSpeedMeasurementsCommPort)
+			SplitStr(Viento(),Cadena_Viento,CHR(32),8,0)
+			windSpeedModulus=Viento(1)*0.04903
+			windSpeedDirection=Viento(2)/10
+
+
+	else
+
+			VoltSe(windSpeedModulus,1,mV5000,windSpeedSingleEndedPort,0,0,_50Hz,0.02,-0.05)
+			VoltSe(windSpeedDirection,1,mV5000,windDirectionSingleEndedPort,0,0,_50Hz,0.072,NoOffset)
+
+	endif
+
+else
+
+	PulseCount(windSpeedModulus,1,1,1,1,0.098,0)
+	BrHalf(windSpeedDirection,1,mV2500,8,Vx1,1,2500,True,0,_60Hz,355,0)
+
+endif
+
+	If windSpeedDirection>=360 Then windSpeedDirection=0
+	
+	'Gust computing
+	
+	'Wind speed vector components computing
+	
+	u=-1*windSpeedModulus*SIN(windSpeedDirection)
+	v=-1*windSpeedModulus*COS(windSpeedDirection)
+	
+	'Run a 3 seconds running average over each component
+	
+	AvgRun (umed3,1,u,3)
+	AvgRun (vmed3,1,v,3)
+	
+	'Compute modulus
+	modmed3=SQR(umed3^2+vmed3^2)
+	
+	'Compute direction
+	If vmed3>=0 Then
+		If vmed3 <> 0 Then
+			dirmed3=ATN(umed3/vmed3)+180
+		Else
+			If umed3>=0 Then
+				dirmed3 = 0+ 180
+			Else
+				dirmed3 = 180 +180
+			EndIf
+		EndIf
+	Else
+	
+		dirmed3=ATN(umed3/vmed3)+360
+		
+	EndIf
+	If dirmed3>=360 Then dirmed3=dirmed3-360
+	
+	'If the computed gust is greater than the previous stored gust modulus and direction, store the new gust value for transmission
+	
+	If modmed3 > maxGustModulus Then
+		maxGustModulus=modmed3
+		maxGustDirection=dirmed3
+	EndIf
+
+'Keep the measured values and compute transmitted values.
+	CallTable Data
+
+	'At the end of the measuring interval given by dataStorageInterval and dataStorageIntervalUnits reset the gust
+	If IfTime(0,dataStorageInterval,dataStorageIntervalUnits) Then
+		maxGustModulus=0
+	EndIf
+
+
+NextScan
