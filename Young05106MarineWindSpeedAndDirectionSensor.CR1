@@ -122,7 +122,7 @@ DataTable (Data,1,-1)
 	WindVector (1,windSpeedModulus,windSpeedDirection,IEEE4,False,0,0,0)
 	FieldNames("windSpeedModulusAvg,windSpeedDirectionAvg,windSpeedDirectionStdDeviation")
 	
-	StdDev(1,WS_ms,IEEE4,False)
+	StdDev(1,windSpeedModulus,IEEE4,False)
 	FieldNames("windSpeedStdDeviation")
 	
 	Sample(1,maxGustModulus,IEEE4)
