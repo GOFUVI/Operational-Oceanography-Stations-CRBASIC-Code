@@ -1,9 +1,14 @@
 'CR1000 Series Datalogger
-'Author: Juan Luis Herrera Cortijo/Jose Gonzalez
+'Author: Juan Luis Herrera Cortijo/Jose Gonzalez/Ramiro Varela
 'Fecha: 13/09/2011
 
 ' Young 05106 Wind Speed & Direction Sensor
 ' Samples wind speed and direction every second and computes average, standard deviation and gust in ten minutes interval
+'--------------------------------------------------------------------------------------------
+'WIRING
+
+
+
 
 '--------------------------------------------------------------------------------------------
 
@@ -40,8 +45,9 @@ const isUsedWithCompass = true
 
 'When not used with a compass measurements are made via pulse counts for speed and HalfBridge for direction
 
-const windSpeedPulseCountPort = 
-const windDirectionHalfBridgePort = 
+const windSpeedPulseCountPort = 1
+const windDirectionHalfBridgePortSEChannel = 2
+const windDirectionHalfBridgePortExcitationChannel = Vx1 
 
 'When used with a compass measurements may be transmitted via RS232 comm port or we must measure voltage
 
@@ -152,8 +158,8 @@ if(isUsedWithCompass) then
 
 else
 
-	PulseCount(windSpeedModulus,1,1,1,1,0.098,0)
-	BrHalf(windSpeedDirection,1,mV2500,8,Vx1,1,2500,True,0,_60Hz,355,0)
+	PulseCount(windSpeedModulus,1,windSpeedPulseCountPort,1,1,0.098,0)
+	BrHalf(windSpeedDirection,1,mV2500,windDirectionHalfBridgePortSEChannel,windDirectionHalfBridgePortExcitationChannel,1,2500,True,0,_60Hz,355,0)
 
 endif
 

@@ -1,0 +1,77 @@
+'CR1000 Series Datalogger
+'Author:
+'Date:
+
+
+'--------------------------------------------------------------------------------------------
+'WIRING
+
+'Sensor wiring compatible with this program
+
+
+'--------------------------------------------------------------------------------------------
+
+'COMPILATION OPTIONS
+
+'Program compiled in sequential mode
+SequentialMode
+
+'Angles in degrees
+AngleDegrees
+
+'--------------------------------------------------------------------------------------------
+
+'VARIABLES AND CONSTANTS
+
+'Constants
+'----------
+
+'Scan length
+
+const scanLength = 'Define your scan length
+const scanLengthUnits = 'Define the units of the length of your scan
+
+'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
+
+const dataStorageInterval = 'Define your storage interval
+const dataStorageIntervalUnits = 'Define the units of your storage interval
+
+
+
+'Variables
+'----------
+
+
+'--------------------------------------------------------------------------------------------
+
+'DEFINE DATA TABLES
+
+DataTable (Data,1,-1)
+	DataInterval (0,dataStorageInterval,dataStorageIntervalUnits,0)
+
+	'Your stored data definitions here
+EndTable
+
+'--------------------------------------------------------------------------------------------
+'MAIN PROGRAM
+
+BeginProg
+
+
+
+'Your initialization code here
+
+
+
+	Scan(scanLength,scanLengthUnits,0,0)
+	
+'Your measurement code here
+
+
+'Keep the measured values and compute transmitted values.
+	CallTable Data
+
+
+'Your post acquisition code here
+
+NextScan
