@@ -27,6 +27,15 @@ AngleDegrees
 'Constants
 '----------
 
+'General
+
+Const PI = 3.141592654
+Const oneRepetition=1
+Const noValues=0
+Const oneValue=1
+Const unityMultiplier=1
+Const noOffset=0
+
 'Scan length
 
 const scanLength = 1
@@ -156,15 +165,15 @@ if(isUsedWithCompass) then
 
 	else
 
-			VoltSe(windSpeedModulus,1,mV5000,windSpeedSingleEndedPort,0,0,_50Hz,0.02,-0.05)
-			VoltSe(windSpeedDirection,1,mV5000,windDirectionSingleEndedPort,0,0,_50Hz,0.072,NoOffset)
+			VoltSe(windSpeedModulus,oneRepetition,mV5000,windSpeedSingleEndedPort,0,0,_50Hz,0.02,-0.05)
+			VoltSe(windSpeedDirection,oneRepetition,mV5000,windDirectionSingleEndedPort,0,0,_50Hz,0.072,noOffset)
 
 	endif
 
 else
 
-	PulseCount(windSpeedModulus,1,windSpeedPulseCountPort,1,1,0.098,0)
-	BrHalf(windSpeedDirection,1,mV2500,windDirectionHalfBridgePortSEChannel,windDirectionHalfBridgePortExcitationChannel,1,2500,True,0,_60Hz,355,0)
+	PulseCount(windSpeedModulus,oneRepetition,windSpeedPulseCountPort,1,1,0.098,noOffset)
+	BrHalf(windSpeedDirection,oneRepetition,mV2500,windDirectionHalfBridgePortSEChannel,windDirectionHalfBridgePortExcChannel,1,2500,True,0,_60Hz,355,noOffset)
 
 endif
 

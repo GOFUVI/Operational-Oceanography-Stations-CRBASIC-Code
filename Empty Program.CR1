@@ -26,6 +26,18 @@ AngleDegrees
 'Constants
 '----------
 
+'General
+
+'General
+
+Const PI = 3.141592654
+Const oneRepetition=1
+Const noValues=0
+Const oneValue=1
+Const unityMultiplier=1
+Const noOffset=0
+
+
 'Scan length
 
 const scanLength = 'Define your scan length
