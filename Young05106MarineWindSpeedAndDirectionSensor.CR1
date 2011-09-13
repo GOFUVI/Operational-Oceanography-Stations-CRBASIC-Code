@@ -47,7 +47,7 @@ const isUsedWithCompass = true
 
 const windSpeedPulseCountPort = 1
 const windDirectionHalfBridgePortSEChannel = 2
-const windDirectionHalfBridgePortExcitationChannel = Vx1 
+Const windDirectionHalfBridgePortExcChannel = Vx1 
 
 'When used with a compass measurements may be transmitted via RS232 comm port or we must measure voltage
 
@@ -75,9 +75,14 @@ Units windSpeedModulus=meters/second
 Public windSpeedDirection
 Units windSpeedDirection = Degrees clockwise from North.
 
+'Intermediate variables for wind measurement
+
+Dim windString As String *255 'string to read string data in case of RS232 communications
+Dim windData(8) 'Array to store wind data after spliting the wind string
+
 'Intermediate variables for gust computing
 
-Private u,v,umed3,vmed3,modmed3,dirmed3
+Dim u,v,umed3,vmed3,modmed3,dirmed3
 
 Units u=meters/second
 Units v=meters/second
@@ -140,13 +145,13 @@ if(isUsedWithCompass) then
 	
 			If SerialInChk (windSpeedMeasurementsCommPort) > 0 Then
 				'Read data until finding a  <CR>
-				SerialIn (Cadena_viento,windSpeedMeasurementsCommPort,100,13,134)
-				SerialIn (Cadena_viento,windSpeedMeasurementsCommPort,100,13,134)
+				SerialIn (windString,windSpeedMeasurementsCommPort,100,13,134)
+				SerialIn (windString,windSpeedMeasurementsCommPort,100,13,134)
 			EndIf
 			SerialFlush(windSpeedMeasurementsCommPort)
-			SplitStr(Viento(),Cadena_Viento,CHR(32),8,0)
-			windSpeedModulus=Viento(1)*0.04903
-			windSpeedDirection=Viento(2)/10
+			SplitStr(windData(),windString,CHR(32),8,0)
+			windSpeedModulus=windData(1)*0.04903
+			windSpeedDirection=windData(2)/10
 
 
 	else
