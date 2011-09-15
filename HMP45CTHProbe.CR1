@@ -24,7 +24,6 @@
 'STRICT LIABILITY OR OTHERWISE, EVEN IF GOFUVI HAS BEEN ADVISED OF THE
 'POSSIBILITY OF SUCH DAMAGE.
 
-
 'Copyright (c) 2011 GOFUVI. All rights reserved.
 
 
@@ -51,7 +50,6 @@ AngleDegrees
 'constants
 '----------
 
-'General
 
 'General
 
@@ -65,19 +63,29 @@ const noOffset=0
 
 'Scan length
 
-const scanLength = 'Define your scan length
-const scanLengthUnits = 'Define the units of the length of your scan
+const scanLength = 1
+const scanLengthUnits = Sec
 
 'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
 
-const dataStorageInterval = 'Define your storage interval
-const dataStorageIntervalUnits = 'Define the units of your storage interval
+const dataStorageInterval = 10
+const dataStorageIntervalUnits = Min
 
+'HMP45AC TH Probe
+const temperatureSingleEndedPort = 1
+const relativeHumiditySingleEndedPort = 2
 
 
 'Variables
 '----------
 
+'HMP45AC TH Probe
+
+public airTemperature
+Units airTemperature=degrees_Celsuis
+
+public relativeHumidity
+Units relativeHumidity=%
 
 '--------------------------------------------------------------------------------------------
 
@@ -86,7 +94,11 @@ const dataStorageIntervalUnits = 'Define the units of your storage interval
 DataTable (Data,1,-1)
 	DataInterval (0,dataStorageInterval,dataStorageIntervalUnits,0)
 
-	'Your stored data definitions here
+	Average(1,airTemperature,IEEE4,False)
+	FieldNames("Avg_Air_Temperature")
+	Average(1,relativeHumidity,IEEE4,False)
+	FieldNames("Avg_Relative_Humidity")
+	
 EndTable
 
 '--------------------------------------------------------------------------------------------
@@ -96,19 +108,27 @@ BeginProg
 
 
 
-'Your initialization code here
-
-
-
 	Scan(scanLength,scanLengthUnits,0,0)
+	'Manufacturer recommends to turn off the probe between measurements to avoid to introduce noise in the voltage measurement of other variables at other ports.
 	
-'Your measurement code here
+	'Power the probe
+	SW12 (1 )
+	
+	'Wait to warm
+	Delay(0,150,mSec)
+	
+	'Measure temperature. According to the manufacturer temperature=0.1*V-40
+	VoltSe(airTemperature,1,mV2500,temperatureSingleEndedPort,0,0,_50Hz,0.1,-40)
+	
+	'Measure relative humidity. According to the manufacturer RH = 0.1*V
+	VoltSe(relativeHumidity,1,mV2500,relativeHumiditySingleEndedPort,0,0,_50Hz,0.1,NoOffset)
+	
+	'Make sure HR is nor greater than 100%
+	If relativeHumidity>100 AND relativeHumidity<108 Then relativeHumidity=100
 
-
-'Keep the measured values and compute transmitted values.
+	'Remove power from the probe
+	SW12 (0)
+	
 	CallTable Data
-
-
-'Your post acquisition code here
 
 NextScan

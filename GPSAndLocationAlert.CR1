@@ -1,0 +1,261 @@
+'CR1000 Series Datalogger
+'Author: Juan Luis Herrera Cortijo/Jose Gonzalez/Ramiro Varela
+'Date: 13/09/2011
+
+'Disclaimer: IMPORTANT:  This GOFUVI software is supplied to you by GOFUVI
+' in consideration of your agreement to the following
+' terms, and your use, installation, modification or redistribution of
+' this GOFUVI software constitutes acceptance of these terms.  If you do
+' not agree with these terms, please do not use, install, modify or
+' redistribute this GOFUVI software.
+
+'The GOFUVI software is provided by GOFUVI on an "AS IS" basis.  GOFUVI
+'MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+'THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
+'FOR A PARTICULAR PURPOSE, REGARDING THE GOFUVI SOFTWARE OR ITS USE AND
+'OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+
+'IN NO EVENT SHALL GOFUVI BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
+'OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+'SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+'INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
+'MODIFICATION AND/OR DISTRIBUTION OF THE GOFUVI SOFTWARE, HOWEVER CAUSED
+'AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
+'STRICT LIABILITY OR OTHERWISE, EVEN IF GOFUVI HAS BEEN ADVISED OF THE
+'POSSIBILITY OF SUCH DAMAGE.
+
+'Copyright (c) 2011 GOFUVI. All rights reserved.
+
+
+'--------------------------------------------------------------------------------------------
+'WIRING
+
+'GPS communications -> Com2
+'Control on/off GPS -> C7
+'Control on/off Inductivo -> C8
+
+
+'--------------------------------------------------------------------------------------------
+
+'COMPILATION OPTIONS
+
+'Program compiled in sequential mode
+SequentialMode
+
+'Angles in degrees
+AngleDegrees
+
+'--------------------------------------------------------------------------------------------
+
+'VARIABLES AND constANTS
+
+'constants
+'----------
+
+'General
+
+const PI = 3.141592654
+const oneRepetition=1
+const noValues=0
+const oneValue=1
+const unityMultiplier=1
+const noOffset=0
+
+
+'Scan length
+
+const scanLength = 'Define your scan length
+const scanLengthUnits = 'Define the units of the length of your scan
+
+'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
+
+const dataStorageInterval = 60
+const dataStorageIntervalUnits = Sec
+
+'GPS
+
+'Alert
+const areAlertsActivated = true 'set this to false if no alert service is desired.
+const phoneNumber = 'Introduce the phone number to which alert SMS will be sent
+
+
+'Longitude/latitud to UTM conversion constants
+const UTM_k0=0.9996
+
+'WGS84 ellipsoid parameters
+const UTM_radio=6378137
+const UTM_ecc=0.00669438
+
+'Theoretical mooring location
+const Longitud_media= 'Set the longitude of your mooring location (decimal degrees)
+const Latitud_media= 'Set the latitude of your mooring location (decimal degrees)
+
+const dist_maxima= 'Set the radium of the mooring area (meters)
+ 
+
+'Variables
+'----------
+
+'GPS control
+dim GPS_encendido As Boolean
+
+'GPS fix acquisition intermediate variables
+dim GPSData As String * 100
+dim RawGGAStrings(6) As String * 10
+dim RawGGAData(6)
+
+alias RawGGAData(1)=Latt
+units Latt=Deg
+
+alias RawGGAData(2)=Latt_H_NS
+alias RawGGAData(3)=Longit
+units Longit=Deg
+
+alias RawGGAData(4)=Longit_H_NS
+alias RawGGAData(5)=GGA_UTC_Time
+alias RawGGAData(6)=GPSQuality
+
+public DatosGPS(4)
+public H_GPS(2) As String * 1
+
+alias DatosGPS(1) = GPS_Time_UTC
+alias DatosGPS(2) = Longitud
+units Longitud=Deg
+
+alias DatosGPS(3) = Latitud
+units Latitud=Deg
+
+alias DatosGPS(4) = GPS_Calidad
+
+alias H_GPS(1) = Hemisferio_longitud
+alias H_GPS(2) = Hemisferio_latitud
+
+dim valido
+
+
+'Alert service related variables
+
+dim LongOrigin, LongTemp,LatRad,LongRad,LongOriginRad
+dim Alerta_posicion As Boolean
+
+public UTM_distancia
+units UTM_distancia = m
+
+dim Mensaje_Alerta_Enviado
+dim UTM_zona,UTM_N,UTM_T,UTM_C,UTM_A,UTM_M,UTM_eccprime
+dim UTM_x_media,UTM_y_media,UTM_x,UTM_y
+
+dim Mensaje_Alerta As String *255
+dim Fecha_Alerta As String * 20
+
+
+'--------------------------------------------------------------------------------------------
+
+'DEFINE DATA TABLES
+
+DataTable (Data,1,-1)
+	DataInterval (0,dataStorageInterval,dataStorageIntervalUnits,0)
+
+		Sample(1,UTM_Distancia,IEEE4)
+
+		Sample(4,DatosGPS(),IEEE4)
+
+		Sample(2,H_GPS(),String)
+EndTable
+
+'--------------------------------------------------------------------------------------------
+'MAIN PROGRAM
+
+BeginProg
+
+'''''''''''''''''''''''''''''''''''GPS''''''''''''''''''''''''''''
+Alerta_posicion=False
+Latitud=Latitud_Media
+Longitud=Longitud_Media
+LongTemp=((Longitud+180)-FIX((Longitud+180)/360)*360-180)*-1
+UTM_Zona=FIX((LongTemp+180)/6)+1
+If ((Latitud>=56) AND (Latitud<64) AND (Longtemp >= 3) AND (Longtemp<12)) Then
+	UTM_Zona=32
+EndIf
+LongOrigin=(UTM_Zona-1)*6-180+3
+UTM_eccprime=(UTM_ecc)/(1-UTM_ecc)
+UTM_N=UTM_Radio/SQR(1-UTM_ecc*SIN(Latitud)*SIN(Latitud))
+UTM_T=TAN(Latitud)*TAN(Latitud)
+UTM_C=UTM_eccprime*COS(Latitud)*COS(Latitud)
+UTM_A=COS(Latitud)*(Longtemp*pi/180-LongOrigin*pi/180)
+UTM_M=UTM_Radio*((1-UTM_ecc/4-3*UTM_ecc^2/64-5*UTM_ecc^3/256)*Latitud*pi/180-(3*UTM_ecc/8+3*UTM_ecc^2/32+45*UTM_ecc^3/1024)*SIN(2*Latitud)+(15*UTM_ecc^2/256+45*UTM_ecc^3/1024)*SIN(4*latitud)-(35*UTM_ecc^3/3072)*SIN(6*latitud))
+UTM_x_media=(UTM_k0*UTM_N*(UTM_A+(1-UTM_T+UTM_C)*UTM_A^3/6+(5-18*UTM_T+UTM_T^2+72*UTM_C-58*UTM_eccprime)*UTM_A^5/120)+500000)
+UTM_y_media=(UTM_k0*(UTM_M+UTM_N*TAN(Latitud)*(UTM_A^2/2+(5-UTM_T+9*UTM_C+4*UTM_C^2)*UTM_A^4/24+(61-58*UTM_T+UTM_T^2+600*UTM_C-330*UTM_eccprime)*UTM_A^6/720)))
+
+'Inicializacion de variables
+
+Longitud=-99999
+Latitud=-99999
+'Abro el puerto del GPS para empezar a recibir datos
+PortSet(7,0)
+SerialOpen (Com2,9600,0,0,2000)
+GPS_encendido=True 
+''''''''''''''''''''''''''''''Fin GPS'''''''''''''''''''''''''''''
+
+	Scan(scanLength,scanLengthUnits,0,0)
+	
+		If IfTime(540,600,Sec) Then
+			PortSet(7,0)
+			GPS_encendido=True
+		EndIf
+		If GPS_encendido Then
+			' Mientras haya datos en el puerto y no se haya encontrado ninguno valido
+			While (SerialInChk (Com2) >0) AND  (valido = 0)
+				SerialIn (GPSData,Com2,0,"$GPGLL,",100)
+				SerialIn (GPSData,Com2,0,13,100)
+				SplitStr (RawGGAData(),GPSData,CHR(44),6,5)
+				SplitStr (RawGGAStrings(),GPSData,CHR(44),6,5)
+				valido=InStr (1,RawGGAStrings(6),"A",2)
+			Wend
+			'Vacio el puerto del GPS
+			SerialFlush (Com2)
+			If (valido>0) Then
+				GPS_Time_UTC=GGA_UTC_Time
+				Hemisferio_Longitud=RawGGAStrings(4)
+				Hemisferio_Latitud=RawGGAStrings(2)
+				Longitud=FIX(Longit/100)+(Longit-FIX(Longit/100)*100)/60
+				Latitud=FIX(Latt/100)+(Latt-FIX(Latt/100)*100)/60
+				GPS_Calidad=1
+				valido=0
+				'Conversion a UTM
+
+				LongTemp=((Longitud+180)-FIX((Longitud+180)/360)*360-180)*-1
+				UTM_Zona=FIX((LongTemp+180)/6)+1
+				If ((Latitud>=56) AND (Latitud<64) AND (Longtemp >= 3) AND (Longtemp<12)) Then
+					UTM_Zona=32
+				EndIf
+				LongOrigin=(UTM_Zona-1)*6-180+3
+				UTM_eccprime=(UTM_ecc)/(1-UTM_ecc)
+				UTM_N=UTM_Radio/SQR(1-UTM_ecc*SIN(Latitud)*SIN(Latitud))
+				UTM_T=TAN(Latitud)*TAN(Latitud)
+				UTM_C=UTM_eccprime*COS(Latitud)*COS(Latitud)
+				UTM_A=COS(Latitud)*(Longtemp*pi/180-LongOrigin*pi/180)
+				UTM_M=UTM_Radio*((1-UTM_ecc/4-3*UTM_ecc^2/64-5*UTM_ecc^3/256)*Latitud*pi/180-(3*UTM_ecc/8+3*UTM_ecc^2/32+45*UTM_ecc^3/1024)*SIN(2*Latitud)+(15*UTM_ecc^2/256+45*UTM_ecc^3/1024)*SIN(4*latitud)-(35*UTM_ecc^3/3072)*SIN(6*latitud))
+				UTM_x=(UTM_k0*UTM_N*(UTM_A+(1-UTM_T+UTM_C)*UTM_A^3/6+(5-18*UTM_T+UTM_T^2+72*UTM_C-58*UTM_eccprime)*UTM_A^5/120)+500000)
+				UTM_y=(UTM_k0*(UTM_M+UTM_N*TAN(Latitud)*(UTM_A^2/2+(5-UTM_T+9*UTM_C+4*UTM_C^2)*UTM_A^4/24+(61-58*UTM_T+UTM_T^2+600*UTM_C-330*UTM_eccprime)*UTM_A^6/720)))
+
+				UTM_distancia=SQR((UTM_x-UTM_x_media)^2+(UTM_y-UTM_y_media)^2)
+				If UTM_distancia < dist_maxima Then
+					Alerta_Posicion=False
+				EndIf
+				GPS_Calidad=1
+				valido=0
+			EndIf
+		EndIf
+		If IfTime (240,600,Sec)   Then
+
+			CallTable Data
+			
+			Longitud=-99999
+			Latitud=-99999
+			GPS_Calidad=0
+		EndIf
+
+
+
+NextScan

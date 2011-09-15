@@ -1,6 +1,29 @@
 'CR1000 Series Datalogger
 'Author: Juan Luis Herrera Cortijo/Jose Gonzalez/Ramiro Varela
-'Fecha: 13/09/2011
+'Date: 13/09/2011
+
+'Disclaimer: IMPORTANT:  This GOFUVI software is supplied to you by GOFUVI
+' in consideration of your agreement to the following
+' terms, and your use, installation, modification or redistribution of
+' this GOFUVI software constitutes acceptance of these terms.  If you do
+' not agree with these terms, please do not use, install, modify or
+' redistribute this GOFUVI software.
+
+'The GOFUVI software is provided by GOFUVI on an "AS IS" basis.  GOFUVI
+'MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+'THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
+'FOR A PARTICULAR PURPOSE, REGARDING THE GOFUVI SOFTWARE OR ITS USE AND
+'OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+
+'IN NO EVENT SHALL GOFUVI BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
+'OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+'SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+'INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
+'MODIFICATION AND/OR DISTRIBUTION OF THE GOFUVI SOFTWARE, HOWEVER CAUSED
+'AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
+'STRICT LIABILITY OR OTHERWISE, EVEN IF GOFUVI HAS BEEN ADVISED OF THE
+'POSSIBILITY OF SUCH DAMAGE.
+'Copyright (c) 2011 GOFUVI. All rights reserved.
 
 ' Young 05106 Wind Speed & Direction Sensor
 ' Samples wind speed and direction every second and computes average, standard deviation and gust in ten minutes interval
@@ -22,19 +45,19 @@ AngleDegrees
 
 '--------------------------------------------------------------------------------------------
 
-'VARIABLES AND CONSTANTS
+'VARIABLES AND constANTS
 
-'Constants
+'constants
 '----------
 
 'General
 
-Const PI = 3.141592654
-Const oneRepetition=1
-Const noValues=0
-Const oneValue=1
-Const unityMultiplier=1
-Const noOffset=0
+const PI = 3.141592654
+const oneRepetition=1
+const noValues=0
+const oneValue=1
+const unityMultiplier=1
+const noOffset=0
 
 'Scan length
 
@@ -56,7 +79,7 @@ const isUsedWithCompass = true
 
 const windSpeedPulseCountPort = 1
 const windDirectionHalfBridgePortSEChannel = 2
-Const windDirectionHalfBridgePortExcChannel = Vx1 
+const windDirectionHalfBridgePortExcChannel = Vx1 
 
 'When used with a compass measurements may be transmitted via RS232 comm port or we must measure voltage
 
@@ -76,22 +99,22 @@ const windDirectionSingleEndedPort = 2
 
 'Wind Speed
 
-Public windSpeedModulus
+public windSpeedModulus
 Units windSpeedModulus=meters/second
 
 'Wind direction (nautic reference)
 
-Public windSpeedDirection
+public windSpeedDirection
 Units windSpeedDirection = Degrees clockwise from North.
 
 'Intermediate variables for wind measurement
 
-Dim windString As String *255 'string to read string data in case of RS232 communications
-Dim windData(8) 'Array to store wind data after spliting the wind string
+dim windString As String *255 'string to read string data in case of RS232 communications
+dim windData(8) 'Array to store wind data after spliting the wind string
 
 'Intermediate variables for gust computing
 
-Dim u,v,umed3,vmed3,modmed3,dirmed3
+dim u,v,umed3,vmed3,modmed3,dirmed3
 
 Units u=meters/second
 Units v=meters/second
@@ -104,12 +127,12 @@ Units dirmed3=Degrees clockwise from North
 
 'Modulus
 
-Public maxGustModulus
+public maxGustModulus
 Units maxGustModulus=meters/second
 
 'Direction 
 
-Public maxGustDirection
+public maxGustDirection
 Units maxGustDirection=Degrees clockwise from North
 
 '--------------------------------------------------------------------------------------------
