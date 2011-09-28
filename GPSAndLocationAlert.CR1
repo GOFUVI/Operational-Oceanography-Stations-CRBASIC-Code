@@ -30,9 +30,9 @@
 '--------------------------------------------------------------------------------------------
 'WIRING
 
-'GPS communications -> Com2
-'Control on/off GPS -> C7
-'Control on/off Inductivo -> C8
+'GPS communications -> Any comport (here set to Com1)
+'Control on/off GPS -> A control port from C1 to C8 (Here set to C7)
+'
 
 
 '--------------------------------------------------------------------------------------------
@@ -52,6 +52,11 @@ AngleDegrees
 'constants
 '----------
 
+'Sampling interval cycle: defines the length of your whole sampling cycle. All the times in the program shoudl be in the same units that this one.
+
+const sampleIntervalCycle = 600
+const sampleIntervalCycleUnits = Sec
+
 'General
 
 const PI = 3.141592654
@@ -70,16 +75,28 @@ const scanLengthUnits = 'Define the units of the length of your scan
 'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
 
 const dataStorageInterval = 60
-const dataStorageIntervalUnits = Sec
+const dataTableCallTime = 240 ' At this moment the data table will be called and longitude and latitude variables will be reset.
+
 
 'GPS
+
+'Communications and control
+
+const GPSCommPort = Com1 'set this to the port where you have connected your GPS.
+const GPSControlPort = 7 'set this to the value of the port where you are conecting the GPS wire control (Here set to C7)
+const GPSCommPortBaudRate = 9600 'set this to the baud rate of your GPS
+const GPSStartTime =  540 'set this for the moment in your sampling cycle in which the GPS is turned on
+const GPSShutDownTime = 'set this for the moment in your sampling cycle in which the GPS is turned off
 
 'Alert
 const areAlertsActivated = true 'set this to false if no alert service is desired.
 const phoneNumber = 'Introduce the phone number to which alert SMS will be sent
+const GPSAlertCheckTime = 240 'Set this to the moment in which you want to check if the station has been off the mooring area during all the sampling cycle interval.
+const ModemPort =  ComRS232 'Port where a GSM modem is located to send the alert message via SMS
+const dataCenterIP = 'set this to the IP of your datacenter (set the IP in a string)
+const dataCenterTCPPort = 'set this to the port in your dataCenter computer in which the station should connect for callback.
 
-
-'Longitude/latitud to UTM conversion constants
+'Longitudee/Latitude to UTM conversion constants
 const UTM_k0=0.9996
 
 'WGS84 ellipsoid parameters
@@ -87,17 +104,17 @@ const UTM_radio=6378137
 const UTM_ecc=0.00669438
 
 'Theoretical mooring location
-const Longitud_media= 'Set the longitude of your mooring location (decimal degrees)
-const Latitud_media= 'Set the latitude of your mooring location (decimal degrees)
+const mooringLocationLongitude= 'Set the Longitudee of your mooring location (decimal degrees)
+const mooringLocationLatitude= 'Set the Latitudee of your mooring location (decimal degrees)
 
-const dist_maxima= 'Set the radium of the mooring area (meters)
+const maximumDistance= 'Set the radium of the mooring area (meters)
  
 
 'Variables
 '----------
 
 'GPS control
-dim GPS_encendido As Boolean
+dim GPSOn As Boolean
 
 'GPS fix acquisition intermediate variables
 dim GPSData As String * 100
@@ -115,38 +132,40 @@ alias RawGGAData(4)=Longit_H_NS
 alias RawGGAData(5)=GGA_UTC_Time
 alias RawGGAData(6)=GPSQuality
 
-public DatosGPS(4)
+public GPSArray(4)
 public H_GPS(2) As String * 1
 
-alias DatosGPS(1) = GPS_Time_UTC
-alias DatosGPS(2) = Longitud
-units Longitud=Deg
+alias GPSArray(1) = GPS_Time_UTC
+alias GPSArray(2) = Longitude
+units Longitude=Deg
 
-alias DatosGPS(3) = Latitud
-units Latitud=Deg
+alias GPSArray(3) = Latitude
+units Latitude=Deg
 
-alias DatosGPS(4) = GPS_Calidad
+alias GPSArray(4) = fixQuality
 
-alias H_GPS(1) = Hemisferio_longitud
-alias H_GPS(2) = Hemisferio_latitud
+alias H_GPS(1) = longitudeHemisphere
+alias H_GPS(2) = latitudeHemisphere
 
-dim valido
+dim ok
+
+const rTime(9)
 
 
 'Alert service related variables
 
 dim LongOrigin, LongTemp,LatRad,LongRad,LongOriginRad
-dim Alerta_posicion As Boolean
+dim offMooringLocationAlert As Boolean
 
-public UTM_distancia
-units UTM_distancia = m
+public UTMDistance
+units UTMDistance = m
 
-dim Mensaje_Alerta_Enviado
-dim UTM_zona,UTM_N,UTM_T,UTM_C,UTM_A,UTM_M,UTM_eccprime
-dim UTM_x_media,UTM_y_media,UTM_x,UTM_y
+dim alertMessageSent
+dim UTMZone,UTM_N,UTM_T,UTM_C,UTM_A,UTM_M,UTM_eccprime
+dim UTMMooringLocationX,UTMMooringLocationY,UTMLocationX,UTMLocationY
 
-dim Mensaje_Alerta As String *255
-dim Fecha_Alerta As String * 20
+dim alertMessage As String *255
+dim alertDate As String * 20
 
 
 '--------------------------------------------------------------------------------------------
@@ -154,11 +173,11 @@ dim Fecha_Alerta As String * 20
 'DEFINE DATA TABLES
 
 DataTable (Data,1,-1)
-	DataInterval (0,dataStorageInterval,dataStorageIntervalUnits,0)
+	DataInterval (0,dataStorageInterval,sampleIntervalCycleUnits,0)
 
-		Sample(1,UTM_Distancia,IEEE4)
+		Sample(1,UTMDistance,IEEE4)
 
-		Sample(4,DatosGPS(),IEEE4)
+		Sample(4,GPSArray(),IEEE4)
 
 		Sample(2,H_GPS(),String)
 EndTable
@@ -168,94 +187,156 @@ EndTable
 
 BeginProg
 
+
 '''''''''''''''''''''''''''''''''''GPS''''''''''''''''''''''''''''
-Alerta_posicion=False
-Latitud=Latitud_Media
-Longitud=Longitud_Media
-LongTemp=((Longitud+180)-FIX((Longitud+180)/360)*360-180)*-1
-UTM_Zona=FIX((LongTemp+180)/6)+1
-If ((Latitud>=56) AND (Latitud<64) AND (Longtemp >= 3) AND (Longtemp<12)) Then
-	UTM_Zona=32
+'Alert flag is set low
+
+offMooringLocationAlert=False
+
+'UTM coordinates are computed for the theoretical mooring location
+
+Latitude=mooringLocationLatitude
+Longitude=mooringLocationLongitude
+
+LongTemp=((Longitude+180)-FIX((Longitude+180)/360)*360-180)*-1
+
+UTMZone=FIX((LongTemp+180)/6)+1
+
+If ((Latitude>=56) AND (Latitude<64) AND (Longtemp >= 3) AND (Longtemp<12)) Then
+	UTMZone=32
 EndIf
-LongOrigin=(UTM_Zona-1)*6-180+3
+
+LongOrigin=(UTMZone-1)*6-180+3
 UTM_eccprime=(UTM_ecc)/(1-UTM_ecc)
-UTM_N=UTM_Radio/SQR(1-UTM_ecc*SIN(Latitud)*SIN(Latitud))
-UTM_T=TAN(Latitud)*TAN(Latitud)
-UTM_C=UTM_eccprime*COS(Latitud)*COS(Latitud)
-UTM_A=COS(Latitud)*(Longtemp*pi/180-LongOrigin*pi/180)
-UTM_M=UTM_Radio*((1-UTM_ecc/4-3*UTM_ecc^2/64-5*UTM_ecc^3/256)*Latitud*pi/180-(3*UTM_ecc/8+3*UTM_ecc^2/32+45*UTM_ecc^3/1024)*SIN(2*Latitud)+(15*UTM_ecc^2/256+45*UTM_ecc^3/1024)*SIN(4*latitud)-(35*UTM_ecc^3/3072)*SIN(6*latitud))
-UTM_x_media=(UTM_k0*UTM_N*(UTM_A+(1-UTM_T+UTM_C)*UTM_A^3/6+(5-18*UTM_T+UTM_T^2+72*UTM_C-58*UTM_eccprime)*UTM_A^5/120)+500000)
-UTM_y_media=(UTM_k0*(UTM_M+UTM_N*TAN(Latitud)*(UTM_A^2/2+(5-UTM_T+9*UTM_C+4*UTM_C^2)*UTM_A^4/24+(61-58*UTM_T+UTM_T^2+600*UTM_C-330*UTM_eccprime)*UTM_A^6/720)))
+UTM_N=UTM_Radio/SQR(1-UTM_ecc*SIN(Latitude)*SIN(Latitude))
+UTM_T=TAN(Latitude)*TAN(Latitude)
+UTM_C=UTM_eccprime*COS(Latitude)*COS(Latitude)
+UTM_A=COS(Latitude)*(Longtemp*pi/180-LongOrigin*pi/180)
+UTM_M=UTM_Radio*((1-UTM_ecc/4-3*UTM_ecc^2/64-5*UTM_ecc^3/256)*Latitude*pi/180-(3*UTM_ecc/8+3*UTM_ecc^2/32+45*UTM_ecc^3/1024)*SIN(2*Latitude)+(15*UTM_ecc^2/256+45*UTM_ecc^3/1024)*SIN(4*Latitude)-(35*UTM_ecc^3/3072)*SIN(6*Latitude))
 
-'Inicializacion de variables
+UTMMooringLocationX=(UTM_k0*UTM_N*(UTM_A+(1-UTM_T+UTM_C)*UTM_A^3/6+(5-18*UTM_T+UTM_T^2+72*UTM_C-58*UTM_eccprime)*UTM_A^5/120)+500000)
+UTMMooringLocationY=(UTM_k0*(UTM_M+UTM_N*TAN(Latitude)*(UTM_A^2/2+(5-UTM_T+9*UTM_C+4*UTM_C^2)*UTM_A^4/24+(61-58*UTM_T+UTM_T^2+600*UTM_C-330*UTM_eccprime)*UTM_A^6/720)))
 
-Longitud=-99999
-Latitud=-99999
-'Abro el puerto del GPS para empezar a recibir datos
-PortSet(7,0)
-SerialOpen (Com2,9600,0,0,2000)
-GPS_encendido=True 
-''''''''''''''''''''''''''''''Fin GPS'''''''''''''''''''''''''''''
+'Initalize longitude and latitude to no valid values
+Longitude=-99999
+Latitude=-99999
 
-	Scan(scanLength,scanLengthUnits,0,0)
-	
-		If IfTime(540,600,Sec) Then
-			PortSet(7,0)
-			GPS_encendido=True
+'Switch the GPS control port to start receiving fixes.
+PortSet(GPSControlPort,0)
+
+'Open the GPS comport to start receiving data.
+SerialOpen (GPSCommPort,GPSCommPortBaudRate,0,0,2000)
+
+'Set a flag for GPS on
+GPSOn=True 
+''''''''''''''''''''''''''''''End GPS'''''''''''''''''''''''''''''
+
+
+Scan(scanLength,sampleIntervalCycleUnits,0,0)
+
+'
+		If IfTime(GPSStartTime,sampleIntervalCycle,sampleIntervalCycleUnits) Then
+			PortSet(GPSControlPort,0)
+			GPSOn=True
 		EndIf
-		If GPS_encendido Then
-			' Mientras haya datos en el puerto y no se haya encontrado ninguno valido
-			While (SerialInChk (Com2) >0) AND  (valido = 0)
-				SerialIn (GPSData,Com2,0,"$GPGLL,",100)
-				SerialIn (GPSData,Com2,0,13,100)
+		If GPSOn Then
+		
+			' While a $GPGLL string is not found and it's a valid fiz and still there are data in the GPSCommPort, continue reading.
+			While (SerialInChk (GPSCommPort) >0) AND  (ok = 0)
+				SerialIn (GPSData,GPSCommPort,0,"$GPGLL,",100)
+				SerialIn (GPSData,GPSCommPort,0,13,100)
 				SplitStr (RawGGAData(),GPSData,CHR(44),6,5)
 				SplitStr (RawGGAStrings(),GPSData,CHR(44),6,5)
-				valido=InStr (1,RawGGAStrings(6),"A",2)
+				ok=InStr (1,RawGGAStrings(6),"A",2)
 			Wend
-			'Vacio el puerto del GPS
-			SerialFlush (Com2)
-			If (valido>0) Then
+			'Flush the GPS comm port
+			SerialFlush (GPSCommPort)
+			If (ok>0) Then 'A valid $GPGLL string has been found. Then extract the longitude and latitude
 				GPS_Time_UTC=GGA_UTC_Time
-				Hemisferio_Longitud=RawGGAStrings(4)
-				Hemisferio_Latitud=RawGGAStrings(2)
-				Longitud=FIX(Longit/100)+(Longit-FIX(Longit/100)*100)/60
-				Latitud=FIX(Latt/100)+(Latt-FIX(Latt/100)*100)/60
-				GPS_Calidad=1
-				valido=0
-				'Conversion a UTM
+				longitudeHemisphere=RawGGAStrings(4)
+				latitudeHemisphere=RawGGAStrings(2)
+				Longitude=FIX(Longit/100)+(Longit-FIX(Longit/100)*100)/60
+				Latitude=FIX(Latt/100)+(Latt-FIX(Latt/100)*100)/60
+				fixQuality=1
+				ok=0
+				
+				if (areAlertsActivated) then 'The alert service is activated
+				
+					'Convert longitude and latitude to UTM coordinates
 
-				LongTemp=((Longitud+180)-FIX((Longitud+180)/360)*360-180)*-1
-				UTM_Zona=FIX((LongTemp+180)/6)+1
-				If ((Latitud>=56) AND (Latitud<64) AND (Longtemp >= 3) AND (Longtemp<12)) Then
-					UTM_Zona=32
-				EndIf
-				LongOrigin=(UTM_Zona-1)*6-180+3
-				UTM_eccprime=(UTM_ecc)/(1-UTM_ecc)
-				UTM_N=UTM_Radio/SQR(1-UTM_ecc*SIN(Latitud)*SIN(Latitud))
-				UTM_T=TAN(Latitud)*TAN(Latitud)
-				UTM_C=UTM_eccprime*COS(Latitud)*COS(Latitud)
-				UTM_A=COS(Latitud)*(Longtemp*pi/180-LongOrigin*pi/180)
-				UTM_M=UTM_Radio*((1-UTM_ecc/4-3*UTM_ecc^2/64-5*UTM_ecc^3/256)*Latitud*pi/180-(3*UTM_ecc/8+3*UTM_ecc^2/32+45*UTM_ecc^3/1024)*SIN(2*Latitud)+(15*UTM_ecc^2/256+45*UTM_ecc^3/1024)*SIN(4*latitud)-(35*UTM_ecc^3/3072)*SIN(6*latitud))
-				UTM_x=(UTM_k0*UTM_N*(UTM_A+(1-UTM_T+UTM_C)*UTM_A^3/6+(5-18*UTM_T+UTM_T^2+72*UTM_C-58*UTM_eccprime)*UTM_A^5/120)+500000)
-				UTM_y=(UTM_k0*(UTM_M+UTM_N*TAN(Latitud)*(UTM_A^2/2+(5-UTM_T+9*UTM_C+4*UTM_C^2)*UTM_A^4/24+(61-58*UTM_T+UTM_T^2+600*UTM_C-330*UTM_eccprime)*UTM_A^6/720)))
+					LongTemp=((Longitude+180)-FIX((Longitude+180)/360)*360-180)*-1
+					UTMZone=FIX((LongTemp+180)/6)+1
+					If ((Latitude>=56) AND (Latitude<64) AND (Longtemp >= 3) AND (Longtemp<12)) Then
+						UTMZone=32
+					EndIf
+					LongOrigin=(UTMZone-1)*6-180+3
+					UTM_eccprime=(UTM_ecc)/(1-UTM_ecc)
+					UTM_N=UTM_Radio/SQR(1-UTM_ecc*SIN(Latitude)*SIN(Latitude))
+					UTM_T=TAN(Latitude)*TAN(Latitude)
+					UTM_C=UTM_eccprime*COS(Latitude)*COS(Latitude)
+					UTM_A=COS(Latitude)*(Longtemp*pi/180-LongOrigin*pi/180)
+				
+									UTM_M=UTM_Radio*((1-UTM_ecc/4-3*UTM_ecc^2/64-5*UTM_ecc^3/256)*Latitude*pi/180-(3*UTM_ecc/8+3*UTM_ecc^2/32+45*UTM_ecc^3/1024)*SIN(2*Latitude)+(15*UTM_ecc^2/256+45*UTM_ecc^3/1024)*SIN(4*Latitude)-(35*UTM_ecc^3/3072)*SIN(6*Latitude))
+				UTMLocationX=(UTM_k0*UTM_N*(UTM_A+(1-UTM_T+UTM_C)*UTM_A^3/6+(5-18*UTM_T+UTM_T^2+72*UTM_C-58*UTM_eccprime)*UTM_A^5/120)+500000)
+				UTMLocationY=(UTM_k0*(UTM_M+UTM_N*TAN(Latitude)*(UTM_A^2/2+(5-UTM_T+9*UTM_C+4*UTM_C^2)*UTM_A^4/24+(61-58*UTM_T+UTM_T^2+600*UTM_C-330*UTM_eccprime)*UTM_A^6/720)))
 
-				UTM_distancia=SQR((UTM_x-UTM_x_media)^2+(UTM_y-UTM_y_media)^2)
-				If UTM_distancia < dist_maxima Then
-					Alerta_Posicion=False
+				UTMDistance=SQR((UTMLocationX-UTMMooringLocationX)^2+(UTMLocationY-UTMMooringLocationY)^2)
+				'If we are into the mooring area, then set the alert flag to false.
+				If UTMDistance < maximumDistance Then
+					offMooringLocationAlert=False
 				EndIf
-				GPS_Calidad=1
-				valido=0
+				fixQuality=1
+				ok=0
+				
+				EndIf
 			EndIf
 		EndIf
-		If IfTime (240,600,Sec)   Then
+		If IfTime (dataTableCallTime,sampleIntervalCycle,sampleIntervalCycleUnits)   Then
 
 			CallTable Data
 			
-			Longitud=-99999
-			Latitud=-99999
-			GPS_Calidad=0
+			Longitude=-99999
+			Latitude=-99999
+			fixQuality=0
 		EndIf
 
+
+		If IfTime (GPSAlertCheckTime,sampleIntervalCycle,sampleIntervalCycleUnits) Then
+			If  (offMooringLocationAlert)  Then
+				RealTime(rTime)
+				SerialOpen(ModemPort,9600,0,20000,1000)
+				SerialOut(ModemPort,"+++","+++",3,200)	'Get the modem's attention
+				Delay(0,1,sec)	'+++ guard time
+				SerialOut(ModemPort,"ATZ"+CHR(13),"0"+CHR(13),3,100) 'Reset to be sure
+			
+			'Set the date of the alert
+			alertDate=FormatFloat(rTime(1),"%4.0f")+"/"+FormatFloat(rTime(2),"%02.0f")+"/"+FormatFloat(rTime(3),"%02.0f")+" "+FormatFloat(rTime(4),"%02.0f")+":"+FormatFloat(rTime(5),"%02.0f")+":"+FormatFloat(rTime(6),"%02.0f")
+			
+				'Set the alert message
+				alertMessage=alertDate+": Station at "+FormatFloat(Floor(UTM_distancia),"%6.0f")+" meters from the mooring point. Last NMEA message:"+GPSData
+					alertMessageSent=SerialOut(Modemport,"AT+CMGS="+CHR(34)+phoneNumber+CHR(34)+CHR(13)+alertMessage+CHR(26),"0"+CHR(13),1,5000)
+				Delay(0,2,Sec)
+				SerialOut(Modemport,"AT+WIND=255"+CHR(13),"0"+CHR(13),1,200) 'Turn on the highest level of status reporting WAVECOM Specific
+				SerialOut(Modemport,"at+cfun=1"+CHR(13),"+WIND: 4",1,5000)	'Issue the soft reset command and wait until fully online (WIND: 4)
+				SerialClose(Modemport) '
+
+				Delay(0,30,sec)
+				
+				TCPOpen(dataCenterIP,dataCenterTCPPort,0)
+
+
+			EndIf
+
+
+			offMooringLocationAlert=True
+		
+		EndIf
+		
+		If IfTime (GPSShutDownTime,sampleIntervalCycle,sampleIntervalCycleUnits)   Then 'Turn the GPS off
+			PortSet(GPSControlPort,1) 
+			GPSOn=False
+		EndIf
+		
 
 
 NextScan
