@@ -53,6 +53,13 @@ AngleDegrees
 
 'General
 
+'Sampling interval cycle: defines the length of your whole sampling cycle. All the times in the program shoudl be in the same units that this one.
+
+const sampleIntervalCycle = 'Define your complete sampling cycle duration
+const sampleIntervalCycleUnits = 'Define your complete sampling cycle duration units 
+
+
+
 'General
 
 const PI = 3.141592654
@@ -88,6 +95,10 @@ DataTable (Data,1,-1)
 
 	'Your stored data definitions here
 EndTable
+
+'------------------------------------------------------------------------------------------------------
+
+'SUBROUTINES
 
 '--------------------------------------------------------------------------------------------
 'MAIN PROGRAM
