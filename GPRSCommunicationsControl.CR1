@@ -1,0 +1,228 @@
+'CR1000 Series Datalogger
+'Author: Juan Luis Herrera Cortijo/Jose Gonzalez/Ramiro Varela
+'Date: 13/09/2011
+
+'Disclaimer: IMPORTANT:  This GOFUVI software is supplied to you by GOFUVI
+' in consideration of your agreement to the following
+' terms, and your use, installation, modification or redistribution of
+' this GOFUVI software constitutes acceptance of these terms.  If you do
+' not agree with these terms, please do not use, install, modify or
+' redistribute this GOFUVI software.
+
+'The GOFUVI software is provided by GOFUVI on an "AS IS" basis.  GOFUVI
+'MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+'THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
+'FOR A PARTICULAR PURPOSE, REGARDING THE GOFUVI SOFTWARE OR ITS USE AND
+'OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+
+'IN NO EVENT SHALL GOFUVI BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
+'OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+'SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+'INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
+'MODIFICATION AND/OR DISTRIBUTION OF THE GOFUVI SOFTWARE, HOWEVER CAUSED
+'AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
+'STRICT LIABILITY OR OTHERWISE, EVEN IF GOFUVI HAS BEEN ADVISED OF THE
+'POSSIBILITY OF SUCH DAMAGE.
+
+
+'Copyright (c) 2011 GOFUVI. All rights reserved.
+
+
+'--------------------------------------------------------------------------------------------
+'WIRING
+
+'Sensor wiring compatible with this program
+
+'Program written for WAVECOM GPRS modem configured by Campbell Sci for use with CR1000 dataloggers
+
+'--------------------------------------------------------------------------------------------
+
+'COMPILATION OPTIONS
+
+'Program compiled in sequential mode
+SequentialMode
+
+'Angles in degrees
+AngleDegrees
+
+'--------------------------------------------------------------------------------------------
+
+'VARIABLES AND constANTS
+
+'constants
+'----------
+
+'General
+
+'Sampling interval cycle: defines the length of your whole sampling cycle. All the times in the program shoudl be in the same units that this one.
+
+const sampleIntervalCycle = 'Define your complete sampling cycle duration
+const sampleIntervalCycleUnits = 'Define your complete sampling cycle duration units 
+
+
+
+'General
+
+const PI = 3.141592654
+const oneRepetition=1
+const noValues=0
+const oneValue=1
+const unityMultiplier=1
+const noOffset=0
+
+
+'Scan length
+
+const scan1Length ='Define your scan length to check for existing connections with computers running loggernet (should check as frequent as possible, we recommend a length of 1 Sec).
+const scan1LengthUnits = 'Define the units of the length of your scan
+
+const scan2Length = 'Define your scan length to control energy saving cycle and reset the modem if needed.
+const scan2LengthUnits = 'Define the units of the length of your scan
+
+
+
+'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
+
+const dataStorageInterval = 'Define your storage interval
+const dataStorageIntervalUnits = 'Define the units of your storage interval
+
+
+'Communications
+
+const modemPort = ComRS232 'Defines the port where the GPRS modem is connected
+const loggernetComputerIP="127.0.0.1" 'IP direction of the computer running loggernet for callback
+const TCPPort=40008 'TCP Port at the computer running loggernet for callback
+const pakBusAddress=4087 'Packbus address for this station defined in the computer running loggernet for callbacks
+const nonInterruptedConnectionStartTime=8 
+const nonInterruptedConnectionEndTime=18 'This two hour values define the time interval along the day in which the modem will NOT be turn off for energy saving.
+
+'The next constants define the time interval during which the modem is turn off for energy saving, the time when need for reset is checked and the time in which a callback to computers running loggernet is made. Units are the same than sampleIntervalCycleUnits
+const timeForModemShutDownForEnergySaving = 180 'Must be multiple of scan2Length
+const timeForModemTurnOnForEnergySaving = 540 'Must be multiple of scan2Length
+
+const timeForModemResetIfNeeded = 300 'Must be multiple of scan2Length 
+
+const timeForCallBack = 0 'Must be multiple of scan2Length
+
+'Variables
+'----------
+
+'modem control variables
+dim currentTime(9)
+dim modemON
+
+dim onlineCount, socket1, socket2
+dim modemInitialised As Boolean
+
+'--------------------------------------------------------------------------------------------
+
+'DEFINE DATA TABLES
+
+'No data tables defined. This program is for modem control only.
+
+'------------------------------------------------------------------------------------------------------
+
+'SUBROUTINES
+
+Sub modemResetControl (numberOfConnections)
+
+	'Controls reset of modem connected at modemPort. If numberOfConnections is equal to 0, the reset the modem. In any case resets numberOfConnections to 0.
+	
+
+	If NOT (numberOfConnections<>0)  Then
+		SerialOpen(modemPort,9600,0,20000,1000) 'Open the modem port
+		SerialOut(modemPort,"+++","+++",3,200)	'Get modem attention
+		Delay(0,1,sec)	'Wait for wake up
+		SerialOut(modemPort,"ATZ"+CHR(13),"0"+CHR(13),3,100) 'Configuration reset
+		SerialOut(modemPort,"AT+WIND=255"+CHR(13),"0"+CHR(13),1,200) 'Turn on the highest level of status reporting WAVECOM Specific
+		SerialOut(modemPort,"at+cfun=1"+CHR(13),"+WIND: 4",1,5000)	'Issue the soft reset command and wait until fully online (WIND: 4)
+		SerialClose(modemPort) 'close the port
+	EndIf
+	numberOfConnections=0 'counter reset
+EndSub
+
+
+'--------------------------------------------------------------------------------------------
+
+
+
+'MAIN PROGRAM
+
+BeginProg
+
+
+
+'-----------------------Modem GPRS start up----------------------------
+Call modemResetControl(0) ' reset the modem
+
+Delay(1,10,Sec)'Wait 10 segundos
+
+'Try to connect with the computer running loggernet
+
+TCPOpen(loggernetComputerIP,TCPPort,0)
+
+modemON=1 'set a flag meaning the modem has been reseted and is should be connected to the internet.
+'''''''''''''''''''''''''''Fin Modem GPRS'''''''''''''''''''''''''''''
+
+
+
+Scan(scan1Length,scan1LengthUnits,0,0)
+	
+	'Connection with computers running loggernet check. The route command check if a current packBus connection exists (for example during data download) but doesn't produce any network traffic. If a connection is found, increase onlineCount counter.
+	
+	if (modemON=1) then
+	
+	If (Route(pakBusAddress)=pakBusAddress) Then
+
+		onlineCount=onlineCount+1
+
+	EndIf
+endif
+NextScan
+
+
+
+
+SlowSequence
+
+Scan(scan2Length,scan2LengthUnits,0,0)
+
+RealTime (currentTime) 'Get the current time
+If NOT(currentTime(4)>nonInterruptedConnectionStartTime AND currentTime(4)<nonInterruptedConnectionEndTime) Then 'We are out of the time interval in which the modem should not be turned off for energy saving
+	If IfTime(timeForModemShutDownForEnergySaving,sampleIntervalCycle,sampleIntervalCycleUnits) AND modemenON=1 Then 
+		SerialOpen(modemPort,9600,0,2000,1000)
+		SerialOut(modemPort,"+++","+++",3,200)
+		Delay(0,1,sec)
+		SerialOut(modemPort,"AT+CFUN=0"+CHR(13),"0"+CHR(13),2,200)
+		SerialClose(modemPort)
+		modemON=0
+	EndIf
+	If IfTime(timeForModemShutDownForEnergySaving,sampleIntervalCycle,sampleIntervalCycleUnits) AND modemenON=0 Then
+		SerialOpen(modemPort,9600,0,2000,1000)
+		SerialOut(modemPort,"+++","+++",3,200)
+		Delay(0,1,sec)
+		SerialOut(modemPort,"AT+CFUN=1"+CHR(13),"0"+CHR(13),2,200)
+		SerialClose(modemPort)
+		modemON=1
+	EndIf
+	
+EndIf
+
+if (modemON=1) then 'The next instructions only make sense when the modem is on
+If IfTime (timeForCallBack,sampleIntervalCycle,sampleIntervalCycleUnits) Then
+	'Try to connect with computers running loggernet.
+	
+TCPOpen(loggernetComputerIP,TCPPort,0)
+
+
+EndIf
+''''''''''''''''''''''''''Comunicaciones''''''''''''''''''
+If IfTime(timeForModemResetIfNeeded,sampleIntervalCycle,sampleIntervalCycleUnits) Then
+	Call modemResetControl(onlineCount)
+EndIf
+
+endIf
+
+
+
+NextScan

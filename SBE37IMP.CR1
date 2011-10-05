@@ -1,0 +1,534 @@
+'CR1000 Series Datalogger
+'Author: Juan Luis Herrera Cortijo/Jose Gonzalez/Ramiro Varela
+'Date: 13/09/2011
+
+'Disclaimer: IMPORTANT:  This GOFUVI software is supplied to you by GOFUVI
+' in consideration of your agreement to the following
+' terms, and your use, installation, modification or redistribution of
+' this GOFUVI software constitutes acceptance of these terms.  If you do
+' not agree with these terms, please do not use, install, modify or
+' redistribute this GOFUVI software.
+
+'The GOFUVI software is provided by GOFUVI on an "AS IS" basis.  GOFUVI
+'MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+'THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
+'FOR A PARTICULAR PURPOSE, REGARDING THE GOFUVI SOFTWARE OR ITS USE AND
+'OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+
+'IN NO EVENT SHALL GOFUVI BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
+'OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+'SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+'INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
+'MODIFICATION AND/OR DISTRIBUTION OF THE GOFUVI SOFTWARE, HOWEVER CAUSED
+'AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
+'STRICT LIABILITY OR OTHERWISE, EVEN IF GOFUVI HAS BEEN ADVISED OF THE
+'POSSIBILITY OF SUCH DAMAGE.
+
+
+'Copyright (c) 2011 GOFUVI. All rights reserved.
+
+
+'--------------------------------------------------------------------------------------------
+'WIRING
+
+'Sensor wiring compatible with this program
+
+'This program is used with a SBE37 IMP CTD connected to an on board inductive modem.
+
+'--------------------------------------------------------------------------------------------
+
+'COMPILATION OPTIONS
+
+'Program compiled in sequential mode
+SequentialMode
+
+'Angles in degrees
+AngleDegrees
+
+'--------------------------------------------------------------------------------------------
+
+'VARIABLES AND constANTS
+
+'constants
+'----------
+
+'General
+
+'Sampling interval cycle: defines the length of your whole sampling cycle. All the times in the program shoudl be in the same units that this one.
+
+const sampleIntervalCycle = 'Define your complete sampling cycle duration
+const sampleIntervalCycleUnits = 'Define your complete sampling cycle duration units 
+
+
+
+'General
+
+const PI = 3.141592654
+const oneRepetition=1
+const noValues=0
+const oneValue=1
+const unityMultiplier=1
+const noOffset=0
+
+
+'Scan length
+
+const scanLength = 'Define your scan length
+const scanLengthUnits = 'Define the units of the length of your scan
+
+'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
+
+const dataStorageInterval = 'Define your storage interval
+const dataStorageIntervalUnits = 'Define the units of your storage interval
+
+const inductiveModemSerialPort = Com1
+
+'Constants for salinity and density computing
+
+'Salinity
+
+const a0 =  0.0080
+const	a1 = -0.1692
+const	a2 = 25.3851
+const	a3 = 14.0941
+const	a4 = -7.0261
+const	a5 =  2.7081
+const	b0 =  0.0005
+const	b1 = -0.0056
+const	b2 = -0.0066
+const	b3 = -0.0375
+const	b4 =  0.0636
+const	b5 = -0.0144
+const	k  =  0.0162
+const c3515 = 42.914
+const	c0 =  0.6766097
+const	c1 =  2.00564e-2
+const	c2 =  1.104259e-4
+const	c3 = -6.9698e-7
+const	c4 =  1.0031e-9
+
+'Pressure correction for salinity
+
+const spa1 = 2.070e-5
+const spa2 = -6.370e-10
+const spa3 = 3.989e-15
+const spb1=3.426e-2
+const spb2=4.464e-4
+const spb3=4.215e-1
+const spb4=-3.107e-3
+
+'Density
+const	ad0 = 999.842594
+const	ad1 =   6.793952e-2
+const	ad2 =  -9.095290e-3
+const	ad3 =   1.001685e-4
+const	ad4 =  -1.120083e-6
+const	ad5 =   6.536332e-9
+const	bd0 =  8.24493e-1
+const	bd1 = -4.0899e-3
+const	bd2 =  7.6438e-5
+const	bd3 = -8.2467e-7
+const	bd4 =  5.3875e-9
+const	cd0 = -5.72466e-3
+const	cd1 = +1.0227e-4
+const	cd2 = -1.6546e-6
+const	add0 = 4.8314e-4
+
+
+
+'Density dependence with pressure
+'KST0
+const f0=+54.6746
+const f1=-0.603459
+const f2=+1.09987e-2
+const f3=-6.1670e-5
+const g0=+7.944e-2
+const g1=+1.6483e-2
+const g2=-5.3009e-4
+'A
+const i0=+2.2838e-3
+const i1=-1.0981e-5
+const i2=-1.6078e-6
+const j0=+1.91075e-4
+
+'B
+const m0=-9.9348e-7
+const m1=+2.0816e-8
+const m2=+9.1697e-10
+
+'Kw
+const e0=+19652.21
+const e1=+148.4206
+const e2=-2.327105
+const e3=+1.360477e-2
+const e4=-5.155288e-5
+'Aw
+const h0=+3.239908
+const h1=+1.43713e-3
+const h2=+1.16092e-4
+const h3=-5.77905e-7
+'Bw
+const k0=+8.50935e-5
+const k1=-6.12293e-6
+const k2=+5.2787e-8
+
+const SBE37WithPressureIDNumber = "#01"
+const SBE37NoPressureIDNumber = "#02"
+
+const isVoltageAvailableForSBE37WithPressure = true
+const isVoltageAvailableForSBE37NoPressure = true
+const SBE37NoPressureTheoreticalPresion = 2' db
+
+
+'Variables
+'----------
+dim Rt,del_T,del_S, T,C,Rt2,S,dens,dens0,P,R,Rp,densST0,Bw,Aw,A,B,Kw,KST0,KSTP,val
+
+dim bytes
+
+dim SBE37WithPressure(6)
+dim SBE37WithPressureVoltages(2)
+
+
+alias SBE37WithPressureVoltages(1)=SBE37WithPressureVMain
+alias SBE37WithPressureVoltages(2)=SBE37WithPressureVlith
+alias SBE37WithPressure(1)=SBE37WithPressureSN
+alias SBE37WithPressure(3)=SBE37WithPressureTemperature
+units SBE37WithPressureTemperature= Deg C
+alias SBE37WithPressure(2)=SBE37WithPressureConductivity
+units SBE37WithPressureConductivity=mS/cm
+alias SBE37WithPressure(4)=SBE37WithPressurePressure
+alias SBE37WithPressure(5)=SBE37WithPressureSalinity
+units SBE37WithPressureSalinity=psu
+alias SBE37(6)=SBE37WithPressureDensity
+units SBE37WithPressureDensity=kg/m3
+
+dim SBE37NoPressure(5)
+dim SBE37NoPressureVoltages(2)
+
+
+alias SBE37NoPressureVoltages(1)=SBE37NoPressureVMain
+alias SBE37NoPressureVoltages(2)=SBE37NoPressureVlith
+
+alias SBE37NoPressure(1)=SBE37NoPressureSN
+alias SBE37NoPressure(3)=SBE37NoPressureTemperature
+units SBE37NoPressureTemperature= Deg C
+alias SBE37NoPressure(2)=SBE37NoPressureConductivity
+units SBE37NoPressureConductivity=mS/cm
+alias SBE37NoPressure(4)=SBE37NoPressureSalinity
+alias SBE37NoPressure(5)=SBE37NoPressureDensity
+units SBE37NoPressureSalinity=psu
+units SBE37NoPressureDensity=kg/m3
+
+
+
+
+dim SBE37Data As String * 150 'String to recover the SBE37 data. The string sent by the SBE37 is about 146 characters length
+dim inductiveModemOn As Boolean
+
+
+'--------------------------------------------------------------------------------------------
+
+'DEFINE DATA TABLES
+
+DataTable (Data,1,-1)
+	DataInterval (0,dataStorageInterval,dataStorageIntervalUnits,0)
+
+	'SBE37 CTD Average
+	Average(1,SBE37WithPressureSalinity,IEEE4,(SBE37WithPressureSalinity=NaN)OR(SBE37WithPressureSalinity=-9999))
+	FieldNames("AvgSalinitySBE37WPressure")
+	Average(1,SBE37WithPressureTemperature,IEEE4,(SBE37WithPressureTemperature=NaN)OR(SBE37WithPressureTemperature=-9999))
+	FieldNames("AvgTemperatureSBE37WPressure")
+	Average(1,SBE37WithPressure_P,IEEE4,(SBE37WithPressure_P=NaN)OR(SBE37WithPressure_P=-9999))
+	FieldNames("AvgPressureSBE37WPressure")
+	Average(1,SBE37WithPressureDensity,IEEE4,(SBE37WithPressureDensity=NaN)OR(SBE37WithPressureDensity=-9999))
+	FieldNames("AvgDensitySBE37WPressure")
+	Average(1,SBE37WithPressureConductivity,IEEE4,(SBE37WithPressureConductivity=NaN)OR(SBE37WithPressureConductivity=-9999))
+	FieldNames("AvgConductivitySBE37WPressure")
+	
+	'Desv estandar de los datos del SBE37 con presion (fondo)
+	StdDev(1,SBE37WithPressureSalinity,IEEE4,(SBE37WithPressureSalinity=NaN)OR(SBE37WithPressureSalinity=-9999))
+	FieldNames("StdDevSalinitySBE37WPressure")
+	StdDev(1,SBE37WithPressureTemperature,IEEE4,(SBE37WithPressureTemperature=NaN)OR(SBE37WithPressureTemperature=-9999))
+	FieldNames("StdDevTemperatureSBE37WPressure")
+	StdDev(1,SBE37WithPressure_P,IEEE4,(SBE37WithPressure_P=NaN)OR(SBE37WithPressure_P=-9999))
+	FieldNames("StdDevPressureSBE37WPressure")
+	StdDev(1,SBE37WithPressureDensity,IEEE4,(SBE37WithPressureDensity=NaN)OR(SBE37WithPressureDensity=-9999))
+	FieldNames("StdDevDensitySBE37WPressure")
+	StdDev(1,SBE37WithPressureConductivity,IEEE4,(SBE37WithPressureConductivity=NaN)OR(SBE37WithPressureConductivity=-9999))
+	FieldNames("StdDevConductivitySBE37WPressure")
+	
+	' Promedio de los datos del SBE37 sin presion (superficie)
+	Average(1,SBE37NoPressureTemperature,IEEE4,(SBE37NoPressureTemperature=NaN)OR(SBE37NoPressureTemperature=-9999))
+	FieldNames("StdDevTemperatureSBE37NPressure")
+	Average(1,SBE37NoPressureSalinity,IEEE4,(SBE37NoPressureSalinity=NaN)OR(SBE37NoPressureSalinity=-9999))
+	FieldNames("StdDevSalinitySBE37NPressure")
+	Average(1,SBE37NoPressureDensity,IEEE4,(SBE37NoPressureDensity=NaN)OR(SBE37NoPressureDensity=-9999))
+	FieldNames("StdDevDensitySBE37NPressure")
+	Average(1,SBE37NoPressureConductivity,IEEE4,(SBE37NoPressureConductivity=NaN)OR(SBE37NoPressureConductivity=-9999))
+	FieldNames("StdDevConductivitySBE37NPressure")
+	
+	' Desv estandar de los datos del SBE37 sin presion (superficie)
+	StdDev(1,SBE37NoPressureTemperature,IEEE4,(SBE37NoPressureTemperature=NaN)OR(SBE37NoPressureTemperature=-9999))
+	FieldNames("StdDevTemperatureSBE37NPressure")
+	StdDev(1,SBE37NoPressureSalinity,IEEE4,(SBE37NoPressureSalinity=NaN)OR(SBE37NoPressureSalinity=-9999))
+	FieldNames("StdDevSalinitySBE37NPressure")
+	StdDev(1,SBE37NoPressureDensity,IEEE4,(SBE37NoPressureDensity=NaN)OR(SBE37NoPressureDensity=-9999))
+	FieldNames("StdDevDensitySBE37NPressure")
+	StdDev(1,SBE37NoPressureConductivity,IEEE4,(SBE37NoPressureConductivity=NaN)OR(SBE37NoPressureConductivity=-9999))
+	FieldNames("StdDevConductivitySBE37NPressure")
+	
+		Sample(4,SBE37NoPressure_n(1),UINT2)
+		Sample(5,SBE37WithPressure_n(1),UINT2)
+	
+EndTable
+
+DataTable(stationStatus,True,-1)
+	
+	DataInterval(0,dataStorageInterval,dataStorageIntervalUnits,0)
+	
+
+
+	Min (1,SBE37NoPressureVMain,IEEE4)
+	Min (1,SBE37WithPressureVMain,IEEE4)
+	Min (1,SBE37NoPressureVlith,IEEE4)
+	Min (1,SBE37WithPressureVlith,IEEE4)
+
+
+
+EndTable
+
+'------------------------------------------------------------------------------------------------------
+
+'SUBROUTINES
+
+'--------------------------------------------------------------------------------------------
+'MAIN PROGRAM
+
+BeginProg
+
+	'Initialize the values to a wrong value flag -9999
+		
+	SBE37NoPressureTemperature=-9999
+	SBE37NoPressureConductivity=-9999
+	SBE37NoPressureSalinity=-9999
+	SBE37NoPressureDensity=-9999
+
+
+	SBE37WithPressureTemperature=-9999
+	SBE37WithPressureConductivity=-9999
+	SBE37WithPressurePressure=-9999
+	SBE37WithPressureSalinity=-9999
+	SBE37WithPressureDensity=-9999
+
+
+	Scan(scanLength,scanLengthUnits,0,0)
+	
+		SBE37NoPressureTemperature=-9999
+		SBE37NoPressureConductivity=-9999
+		SBE37NoPressureSalinity=-9999
+		SBE37NoPressureDensity=-9999
+
+
+		SBE37WithPressureTemperature=-9999
+		SBE37WithPressureConductivity=-9999
+		SBE37WithPressurePressure=-9999
+		SBE37WithPressureSalinity=-9999
+		SBE37WithPressureDensity=-9999
+
+		
+		SerialOpen (inductiveModemSerialPort,9600,0,0,1000) 'Open inductive modem comport
+		SerialOut(inductiveModemSerialPort,"PwrOn"&CHR(13),"",1,0) 'Awake CTDs
+		Delay (1,7,Sec)'Wait 7 seconds
+
+if (isVoltageAvailableForSBE37NoPressure = true) then 'The firmware of the CTD allows to retrieve the voltaje battery.
+		
+		SerialFlush(inductiveModemSerialPort) 'Flush the comport
+		
+		SerialOut(inductiveModemSerialPort,SBE37NoPressureIDNumber&"DS"&CHR(13),"",1,0) 'Send a status command
+		Delay (1,6,Sec) 'Wait 6 seconds for the response
+		bytes= SerialInChk (inductiveModemSerialPort) 'Check for data in the comport
+		If bytes > 0 Then 'There is data in the comport
+			'The voltage is in the third line of the status message
+			SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+			SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+				SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+			'split the string using comma as a separator.
+			SplitStr (SBE37NoPressureVoltages(),SBE37Datasp,CHR(44),2,0)
+		EndIf
+		
+endif		
+
+if (isVoltageAvailableForSBE37WithPressure = true) then 'The firmware of the CTD allows to retrieve the voltaje battery.
+			SerialFlush(inductiveModemSerialPort)'Flush the comport
+		SerialOut(inductiveModemSerialPort,SBE37WithPressureIDNumber&"DS"&CHR(13),"",1,0)'Send status command
+		Delay (1,6,Sec)'Wait 6 seconds for the response
+		bytes= SerialInChk (inductiveModemSerialPort)'Check for data in the commport
+		If bytes > 0 Then'There is data in the comport
+			'The voltage is in the third line of the status message
+			SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+			SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+			SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+		'split the string using comma as a separator.
+			SplitStr (SBE37WithPressureVoltages(),SBE37Data,CHR(44),2,0)
+		EndIf
+endif		
+		CallTable stationStatus 'Store the CTDs battery status in the stationStatus table
+	
+		'Obtain
+		
+		SerialFlush(inductiveModemSerialPort) 'Flush the serial port
+		
+		SerialOut(inductiveModemSerialPort,SBE37NoPressureIDNumber"TS"&CHR(13),"",1,0) 'Send the data acquisition command
+
+		Delay (1,6,Sec) 'Wait 6 seconds
+		
+		bytes= SerialInChk (inductiveModemSerialPort) 'Check for data in the commport
+		If bytes > 0 Then'There is data in the commpost
+			'Data is in the second line
+			SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+			SerialIn (SBE37Data,inductiveModemSerialPort,100,13,134)
+			'Split the string using comma as a separator
+			SplitStr (SBE37NoPressure(),SBE37Data,CHR(44),3,0)
+		EndIf
+
+
+		SerialFlush(inductiveModemSerialPort) 'Flush the commport
+
+		SerialOut(inductiveModemSerialPort,SBE37WithPressureIDNumber"TS"&CHR(13),"",1,0) 'Send the data acquisition command
+		
+		Delay (1,6,Sec) 'Wait 6 seconds
+	
+		bytes= SerialInChk (inductiveModemSerialPort) 'Check for data in the commport
+		If bytes > 0 Then'There is data in the commport
+			'Data is in the second line
+			SerialIn (SBE37Datacp,inductiveModemSerialPort,100,13,134)
+			SerialIn (SBE37Datacp,inductiveModemSerialPort,100,13,134)
+			'Split the string using comma as a separator
+			SplitStr (SBE37WithPressure(),SBE37Data,CHR(44),4,0)
+
+
+		EndIf
+		
+		'flush the commport to free memory
+		SerialFlush(inductiveModemSerialPort)
+		'Close the commport
+		SerialClose(inductiveModemSerialPort)
+
+'Data processing
+
+		For counter=1 To 2 'We have two CTDs
+			Select Case counter
+			Case 1 'CTD without pressure
+				T=SBE37NoPressureTemperature
+				C=SBE37NoPressureConductivity
+				P=SBE37NoPressurePressure
+			Case 2 'CTD with pressure
+				T=SBE37WithPressureTemperature
+				C=SBE37WithPressureConductivity
+				P=SBE37WithPressurePressure
+			EndSelect
+			'Check if the data is within reasonable limits
+			If (T>100) OR (T<-10) Then
+				T=NaN
+			EndIf
+			If (C>1000) OR (C<0) Then
+				C=NaN
+			EndIf
+			If (P<0) OR (P>5000) Then
+				P=NaN
+			EndIf
+			
+			Select Case contador
+			Case 1
+				SBE37NoPressureTemperature=T
+				SBE37NoPressureConductivity=C
+				SBE37NoPressurePressure=P
+			Case 2
+				SBE37WithPressureTemperature=T
+				SBE37WithPressureConductivity=C
+				SBE37WithPressurePressure=P
+			EndSelect
+			
+			
+'Salinity and density computation			
+			
+				If NOT((T=NaN) OR (C=NaN) OR (P=NaN)) Then 'I data is in a reasonable range
+				'Salinity computation
+				T = T * 1.00024
+				R=C/c3515
+				rt = c0 + c1*T + c2*T^2 + c3*T^3 + c4*T^4
+				Rp=1+(P*(spa1+spa2*P+spa3*P^2))/(1+spb1*T+spb2*T^2+spb3*R+spb4*R*T)
+				Rt = R/(rt*Rp)
+
+				Rt2   = SQR(Rt)
+				del_T = T - 15
+				del_S = (del_T/ (1+k*del_T) )* ( b0 + b1*Rt2 + b2*Rt2^2+ b3*Rt2^3 + b4*Rt2^4 + b5*Rt2^5)
+				S = a0 + a1*Rt2 + a2*Rt2^2 + a3*Rt2^3 + a4*Rt2^4 + a5*Rt2^5+del_S
+
+				'Density computation
+				P=P/10
+				dens0 = ad0 + ad1*T + ad2*T^2 + ad3*T^3 + ad4*T^4 + ad5*T^5
+				densST0 = dens0 + (bd0 + bd1*T + bd2*T^2 + bd3*T^3 + bd4*T^4)*S+ (cd0 + cd1*T + cd2*T^2)*S^(3/2) + add0*S^2
+				Bw=k0+k1*T+k2*T^2
+				Aw=h0+h1*T+h2*T^2+h3*T^3
+				Kw=e0+e1*T+e2*T^2+e3*T^3+e4*T^4
+				B=Bw+(m0+m1*T+m2*T^2)*S
+				A=Aw+(i0+i1*T+i2*T^2)*S+j0*S^(3/2)
+				KST0=Kw+(f0+f1*T+f2*T^2+f3*T^3)*S+(g0+g1*T+g2*T^2)*S^(3/2)
+				KSTP=KST0+A*P+B*P^2
+				val=1-P/KSTP
+				dens=densST0/val
+		
+			Select Case contador 'Store final data
+			Case 1 'CTD without pressure
+				SBE37NoPressureSalinity=S
+				SBE37NoPressureDensity=dens-1000
+			Case 2 'CTD with pressure
+				SBE37WithPressureDensity=dens-1000
+				SBE37WithPressureSalinity=S
+			EndSelect
+			EndIf
+		Next
+
+'Check if the data is valid or not and if valid, increase the number of valid data acquired during the present sampling cycle
+		For counter=1 To  4
+			If NOT((SBE37NoPressure(contador+1)=NaN) OR (SBE37NoPressure(contador+1)=-9999)) Then
+				SBE37NoPressure_n(contador)=SBE37NoPressure_n(contador)+1
+			EndIf
+
+		Next
+
+
+		For contador=1 To  5
+			If NOT((SBE37WithPressure(contador+1)=NaN) OR (SBE37WithPressure(contador+1)=-9999)) Then
+				SBE37WithPressure_n(contador)=SBE37WithPressure_n(contador)+1
+			EndIf
+		Next
+
+
+
+	
+
+'Keep the measured values and compute transmitted values.
+	CallTable Data
+
+'At the end of a sampling cycle, reset the number of valid data to 0
+		If IfTime(0,dataStorageInterval,dataStorageIntervalUnits) Then
+			For contador=1 To  4
+
+				SBE37NoPressure_n(contador)=0
+
+			Next
+
+
+			For contador=1 To  5
+
+				SBE37WithPressure_n(contador)=0
+
+			Next
+
+	
+		endif
+
+NextScan

@@ -1,0 +1,149 @@
+'CR1000 Series Datalogger
+'Author: Juan Luis Herrera Cortijo/Jose Gonzalez/Ramiro Varela
+'Date: 13/09/2011
+
+'Disclaimer: IMPORTANT:  This GOFUVI software is supplied to you by GOFUVI
+' in consideration of your agreement to the following
+' terms, and your use, installation, modification or redistribution of
+' this GOFUVI software constitutes acceptance of these terms.  If you do
+' not agree with these terms, please do not use, install, modify or
+' redistribute this GOFUVI software.
+
+'The GOFUVI software is provided by GOFUVI on an "AS IS" basis.  GOFUVI
+'MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+'THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
+'FOR A PARTICULAR PURPOSE, REGARDING THE GOFUVI SOFTWARE OR ITS USE AND
+'OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+
+'IN NO EVENT SHALL GOFUVI BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
+'OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+'SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+'INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
+'MODIFICATION AND/OR DISTRIBUTION OF THE GOFUVI SOFTWARE, HOWEVER CAUSED
+'AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
+'STRICT LIABILITY OR OTHERWISE, EVEN IF GOFUVI HAS BEEN ADVISED OF THE
+'POSSIBILITY OF SUCH DAMAGE.
+
+
+'Copyright (c) 2011 GOFUVI. All rights reserved.
+
+
+'--------------------------------------------------------------------------------------------
+'WIRING
+
+'Sensor wiring compatible with this program
+
+
+'--------------------------------------------------------------------------------------------
+
+'COMPILATION OPTIONS
+
+'Program compiled in sequential mode
+SequentialMode
+
+'Angles in degrees
+AngleDegrees
+
+'--------------------------------------------------------------------------------------------
+
+'VARIABLES AND constANTS
+
+'constants
+'----------
+
+'General
+
+'Sampling interval cycle: defines the length of your whole sampling cycle. All the times in the program shoudl be in the same units that this one.
+
+const sampleIntervalCycle = 'Define your complete sampling cycle duration
+const sampleIntervalCycleUnits = 'Define your complete sampling cycle duration units 
+
+
+
+'General
+
+const PI = 3.141592654
+const oneRepetition=1
+const noValues=0
+const oneValue=1
+const unityMultiplier=1
+const noOffset=0
+
+
+'Scan length
+
+const scanLength = 'Define your scan length
+const scanLengthUnits = 'Define the units of the length of your scan
+
+'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
+
+const dataStorageInterval = 'Define your storage interval
+const dataStorageIntervalUnits = 'Define the units of your storage interval
+
+const isAvailableOrientation = true 
+const compassComport;
+
+'Variables
+'----------
+
+Public Orientation
+Units Orientation=Degrees
+
+dim compassString As String *255
+dim compassData(8)
+
+'--------------------------------------------------------------------------------------------
+
+'DEFINE DATA TABLES
+
+DataTable (Data,1,-1)
+	DataInterval (0,dataStorageInterval,dataStorageIntervalUnits,0)
+
+	Minimum(1,mainPowerVoltage,IEEE4,0,False)
+	Average(1,dataloggerTemperature,IEEE4,False)
+	Average(1,Orientation,IEEE4,(not isAvailableOrientation))
+EndTable
+
+'------------------------------------------------------------------------------------------------------
+
+'SUBROUTINES
+
+'--------------------------------------------------------------------------------------------
+'MAIN PROGRAM
+
+BeginProg
+
+
+
+SerialOpen (compassComPort,9600,0,0,2000)
+
+
+
+	Scan(scanLength,scanLengthUnits,0,0)
+	
+'Your measurement code here
+
+	PanelTemp (dataloggerTemperature,250)
+
+	'Default Datalogger Battery Voltage measurement Batt_Volt:
+	Battery(mainPowerVoltage)
+
+		bytes= SerialInChk (compassComPort)
+				If bytes > 0 Then
+					'si hay datos los leo hasta encontrar un <CR>
+					SerialIn (compassString,compassComPort,100,13,134)
+					SerialIn (compassString,compassComPort,100,13,134)
+					EndIf
+					SerialFlush(compassComPort)
+		SplitStr(compassData(),compassString,CHR(32),8,0)
+
+Orientation=compassData(7)/10
+
+
+'Keep the measured values and compute transmitted values.
+	CallTable Data
+
+
+'Your post acquisition code here
+
+NextScan
