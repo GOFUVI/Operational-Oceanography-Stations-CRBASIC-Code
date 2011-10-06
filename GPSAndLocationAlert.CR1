@@ -69,12 +69,12 @@ const noOffset=0
 
 'Scan length
 
-const scanLength = 'Define your scan length
-const scanLengthUnits = 'Define the units of the length of your scan
+Const scanLength = 600'Define your scan length
+Const scanLengthUnits = Sec'Define the units of the length of your scan
 
 'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
 
-const dataStorageInterval = 60
+const dataStorageInterval = 600
 const dataTableCallTime = 240 ' At this moment the data table will be called and longitude and latitude variables will be reset.
 
 
@@ -86,15 +86,15 @@ const GPSCommPort = Com1 'set this to the port where you have connected your GPS
 const GPSControlPort = 7 'set this to the value of the port where you are conecting the GPS wire control (Here set to C7)
 const GPSCommPortBaudRate = 9600 'set this to the baud rate of your GPS
 const GPSStartTime =  540 'set this for the moment in your sampling cycle in which the GPS is turned on
-const GPSShutDownTime = 'set this for the moment in your sampling cycle in which the GPS is turned off
+Const GPSShutDownTime = 240 'set this for the moment in your sampling cycle in which the GPS is turned off
 
 'Alert
 const areAlertsActivated = true 'set this to false if no alert service is desired.
-const phoneNumber = 'Introduce the phone number to which alert SMS will be sent
+Const phoneNumber = "00000000" 'Introduce the phone number to which alert SMS will be sent
 const GPSAlertCheckTime = 240 'Set this to the moment in which you want to check if the station has been off the mooring area during all the sampling cycle interval.
 const ModemPort =  ComRS232 'Port where a GSM modem is located to send the alert message via SMS
-const dataCenterIP = 'set this to the IP of your datacenter (set the IP in a string)
-const dataCenterTCPPort = 'set this to the port in your dataCenter computer in which the station should connect for callback.
+Const dataCenterIP = "127.0.0.1" 'set this to the IP of your datacenter (set the IP in a string)
+Const dataCenterTCPPort = 0 'set this to the port in your dataCenter computer in which the station should connect for callback.
 
 'Longitudee/Latitude to UTM conversion constants
 const UTM_k0=0.9996
@@ -104,10 +104,10 @@ const UTM_radio=6378137
 const UTM_ecc=0.00669438
 
 'Theoretical mooring location
-const mooringLocationLongitude= 'Set the Longitudee of your mooring location (decimal degrees)
-const mooringLocationLatitude= 'Set the Latitudee of your mooring location (decimal degrees)
+Const mooringLocationLongitude= 0.0 'Set the Longitudee of your mooring location (decimal degrees)
+Const mooringLocationLatitude= 0.0 'Set the Latitudee of your mooring location (decimal degrees)
 
-const maximumDistance= 'Set the radium of the mooring area (meters)
+Const maximumDistance= 100 'Set the radium of the mooring area (meters)
  
 
 'Variables
@@ -149,7 +149,7 @@ alias H_GPS(2) = latitudeHemisphere
 
 dim ok
 
-const rTime(9)
+Dim rTime(9)
 
 
 'Alert service related variables
@@ -313,7 +313,7 @@ Scan(scanLength,sampleIntervalCycleUnits,0,0)
 			alertDate=FormatFloat(rTime(1),"%4.0f")+"/"+FormatFloat(rTime(2),"%02.0f")+"/"+FormatFloat(rTime(3),"%02.0f")+" "+FormatFloat(rTime(4),"%02.0f")+":"+FormatFloat(rTime(5),"%02.0f")+":"+FormatFloat(rTime(6),"%02.0f")
 			
 				'Set the alert message
-				alertMessage=alertDate+": Station at "+FormatFloat(Floor(UTM_distancia),"%6.0f")+" meters from the mooring point. Last NMEA message:"+GPSData
+				alertMessage=alertDate+": Station at "+FormatFloat(Floor(UTMDistance),"%6.0f")+" meters from the mooring point. Last NMEA message:"+GPSData
 					alertMessageSent=SerialOut(Modemport,"AT+CMGS="+CHR(34)+phoneNumber+CHR(34)+CHR(13)+alertMessage+CHR(26),"0"+CHR(13),1,5000)
 				Delay(0,2,Sec)
 				SerialOut(Modemport,"AT+WIND=255"+CHR(13),"0"+CHR(13),1,200) 'Turn on the highest level of status reporting WAVECOM Specific

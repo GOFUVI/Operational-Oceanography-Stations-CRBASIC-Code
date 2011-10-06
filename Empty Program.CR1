@@ -55,8 +55,8 @@ AngleDegrees
 
 'Sampling interval cycle: defines the length of your whole sampling cycle. All the times in the program shoudl be in the same units that this one.
 
-const sampleIntervalCycle = 'Define your complete sampling cycle duration
-const sampleIntervalCycleUnits = 'Define your complete sampling cycle duration units 
+Const sampleIntervalCycle = 600'Define your complete sampling cycle duration
+Const sampleIntervalCycleUnits = Sec 'Define your complete sampling cycle duration units 
 
 
 
@@ -72,13 +72,13 @@ const noOffset=0
 
 'Scan length
 
-const scanLength = 'Define your scan length
-const scanLengthUnits = 'Define the units of the length of your scan
+Const scanLength = 1'Define your scan length
+Const scanLengthUnits = Sec 'Define the units of the length of your scan
 
 'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
 
-const dataStorageInterval = 'Define your storage interval
-const dataStorageIntervalUnits = 'Define the units of your storage interval
+Const dataStorageInterval = 600'Define your storage interval
+Const dataStorageIntervalUnits = Sec 'Define the units of your storage interval
 
 
 

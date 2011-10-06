@@ -56,8 +56,8 @@ AngleDegrees
 
 'Sampling interval cycle: defines the length of your whole sampling cycle. All the times in the program shoudl be in the same units that this one.
 
-const sampleIntervalCycle = 'Define your complete sampling cycle duration
-const sampleIntervalCycleUnits = 'Define your complete sampling cycle duration units 
+Const sampleIntervalCycle = 600 'Define your complete sampling cycle duration
+Const sampleIntervalCycleUnits = Sec 'Define your complete sampling cycle duration units 
 
 
 
@@ -73,18 +73,18 @@ const noOffset=0
 
 'Scan length
 
-const scan1Length ='Define your scan length to check for existing connections with computers running loggernet (should check as frequent as possible, we recommend a length of 1 Sec).
-const scan1LengthUnits = 'Define the units of the length of your scan
+Const scan1Length = 1'Define your scan length to check for existing connections with computers running loggernet (should check as frequent as possible, we recommend a length of 1 Sec).
+Const scan1LengthUnits = Sec 'Define the units of the length of your scan
 
-const scan2Length = 'Define your scan length to control energy saving cycle and reset the modem if needed.
-const scan2LengthUnits = 'Define the units of the length of your scan
+Const scan2Length = 60'Define your scan length to control energy saving cycle and reset the modem if needed.
+Const scan2LengthUnits = Sec'Define the units of the length of your scan
 
 
 
 'Transmitted data computing interval (Must be greater or equal to the scan length and some multiple of the scan length)
 
-const dataStorageInterval = 'Define your storage interval
-const dataStorageIntervalUnits = 'Define the units of your storage interval
+Const dataStorageInterval = 600'Define your storage interval
+Const dataStorageIntervalUnits = Sec 'Define the units of your storage interval
 
 
 'Communications
@@ -189,7 +189,7 @@ Scan(scan2Length,scan2LengthUnits,0,0)
 
 RealTime (currentTime) 'Get the current time
 If NOT(currentTime(4)>nonInterruptedConnectionStartTime AND currentTime(4)<nonInterruptedConnectionEndTime) Then 'We are out of the time interval in which the modem should not be turned off for energy saving
-	If IfTime(timeForModemShutDownForEnergySaving,sampleIntervalCycle,sampleIntervalCycleUnits) AND modemenON=1 Then 
+	If IfTime(timeForModemShutDownForEnergySaving,sampleIntervalCycle,sampleIntervalCycleUnits) AND modemON=1 Then 
 		SerialOpen(modemPort,9600,0,2000,1000)
 		SerialOut(modemPort,"+++","+++",3,200)
 		Delay(0,1,sec)
@@ -197,7 +197,7 @@ If NOT(currentTime(4)>nonInterruptedConnectionStartTime AND currentTime(4)<nonIn
 		SerialClose(modemPort)
 		modemON=0
 	EndIf
-	If IfTime(timeForModemShutDownForEnergySaving,sampleIntervalCycle,sampleIntervalCycleUnits) AND modemenON=0 Then
+	If IfTime(timeForModemShutDownForEnergySaving,sampleIntervalCycle,sampleIntervalCycleUnits) AND modemON=0 Then
 		SerialOpen(modemPort,9600,0,2000,1000)
 		SerialOut(modemPort,"+++","+++",3,200)
 		Delay(0,1,sec)
